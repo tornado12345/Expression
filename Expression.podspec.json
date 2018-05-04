@@ -1,18 +1,18 @@
 {
   "name": "Expression",
-  "version": "0.2",
+  "version": "0.12.9",
   "license": {
-    "type": "zlib",
-    "file": "LICENCE.md"
+    "type": "MIT",
+    "file": "LICENSE.md"
   },
   "summary": "Mac and iOS library for evaluating numeric expressions at runtime.",
   "homepage": "https://github.com/nicklockwood/Expression",
   "authors": "Nick Lockwood",
   "source": {
     "git": "https://github.com/nicklockwood/Expression.git",
-    "tag": "0.2"
+    "tag": "0.12.9"
   },
-  "source_files": "Expression",
+  "source_files": "Sources",
   "requires_arc": true,
   "platforms": {
     "ios": "8.0",
