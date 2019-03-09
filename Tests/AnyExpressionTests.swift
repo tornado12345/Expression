@@ -532,7 +532,7 @@ class AnyExpressionTests: XCTestCase {
 
     func testSubscriptArrayWithClosedRange() {
         let expression = AnyExpression("[1,2,3,4][range]", constants: [
-            "range": ClosedRange(1 ... 2),
+            "range": 1 ... 2 as ClosedRange,
         ])
         XCTAssertEqual(try expression.evaluate(), [2, 3])
     }
@@ -544,7 +544,7 @@ class AnyExpressionTests: XCTestCase {
 
     func testSubscriptArrayWithHalfOpenRange() {
         let expression = AnyExpression("[1,2,3,4][range]", constants: [
-            "range": Range(1 ..< 3),
+            "range": 1 ..< 3 as Range,
         ])
         XCTAssertEqual(try expression.evaluate(), [2, 3])
     }
@@ -623,7 +623,7 @@ class AnyExpressionTests: XCTestCase {
 
     func testSubscriptArrayWithClosedLowerBoundOutOfRange() {
         let expression = AnyExpression("[1,2,3,4][range]", constants: [
-            "range": ClosedRange(-2 ... 4),
+            "range": -2 ... 4 as ClosedRange,
         ])
         XCTAssertThrowsError(try expression.evaluate() as Any) { error in
             XCTAssertEqual(error as? Expression.Error, .arrayBounds(.infix("[]"), -2))
@@ -639,7 +639,7 @@ class AnyExpressionTests: XCTestCase {
 
     func testSubscriptArrayWithHalfOpenLowerBoundOutOfRange() {
         let expression = AnyExpression("[1,2,3,4][range]", constants: [
-            "range": Range(-2 ..< 4),
+            "range": -2 ..< 4 as Range,
         ])
         XCTAssertThrowsError(try expression.evaluate() as Any) { error in
             XCTAssertEqual(error as? Expression.Error, .arrayBounds(.infix("[]"), -2))
@@ -655,7 +655,7 @@ class AnyExpressionTests: XCTestCase {
 
     func testSubscriptArrayWithClosedUpperBoundOutOfRange() {
         let expression = AnyExpression("[1,2,3,4][range]", constants: [
-            "range": ClosedRange(1 ... 4),
+            "range": 1 ... 4 as ClosedRange,
         ])
         XCTAssertThrowsError(try expression.evaluate() as Any) { error in
             XCTAssertEqual(error as? Expression.Error, .arrayBounds(.infix("[]"), 4))
@@ -671,7 +671,7 @@ class AnyExpressionTests: XCTestCase {
 
     func testSubscriptArrayWithHalfOpenUpperBoundOutOfRange() {
         let expression = AnyExpression("[1,2,3,4][range]", constants: [
-            "range": Range(1 ..< 5),
+            "range": 1 ..< 5 as Range,
         ])
         XCTAssertThrowsError(try expression.evaluate() as Any) { error in
             XCTAssertEqual(error as? Expression.Error, .arrayBounds(.infix("[]"), 4))
@@ -1414,7 +1414,7 @@ class AnyExpressionTests: XCTestCase {
         func testFontWeightTypePreserved() throws {
             let expression = AnyExpression("foo", constants: ["foo": NSFont.Weight(5)])
             let result: Any = try expression.evaluate()
-            XCTAssertEqual("\(type(of: result))", "Weight")
+            XCTAssert(type(of: result) is NSFont.Weight.Type)
         }
 
     #endif
@@ -2048,16 +2048,6 @@ class AnyExpressionTests: XCTestCase {
         }
     }
 
-    func testCompareStringAndArray() {
-        let expression = AnyExpression("a == b", constants: [
-            "a": ["world", "hello"],
-            "b": "hello world",
-        ])
-        XCTAssertThrowsError(try expression.evaluate() as Any) { error in
-            XCTAssertEqual(error as? Expression.Error, .typeMismatch(.infix("=="), [["a"], "b"]))
-        }
-    }
-
     func testCompareEquatableStructs() {
         let expression = AnyExpression("a == b", constants: [
             "a": EquatableStruct(foo: 1),
@@ -2229,10 +2219,14 @@ class AnyExpressionTests: XCTestCase {
         XCTAssertEqual(try expression.evaluate() as Double?, 1)
     }
 
-    func testCastBoolResultAsImplicitlyUnwrappedOptionalDouble() {
-        let expression = AnyExpression("5 > 4")
-        XCTAssertEqual(try expression.evaluate() as Double!, 1)
-    }
+    #if !swift(>=3.4) || (swift(>=4) && !swift(>=4.1.5))
+
+        func testCastBoolResultAsImplicitlyUnwrappedOptionalDouble() {
+            let expression = AnyExpression("5 > 4")
+            XCTAssertEqual(try expression.evaluate() as Double!, 1)
+        }
+
+    #endif
 
     func testCastStringAsSubstring() {
         let expression = AnyExpression("'foo'")
