@@ -2,7 +2,7 @@
 //  AnyExpression.swift
 //  Expression
 //
-//  Version 0.12.11
+//  Version 0.13.2
 //
 //  Created by Nick Lockwood on 18/04/2017.
 //  Copyright © 2017 Nick Lockwood. All rights reserved.
@@ -524,17 +524,13 @@ public struct AnyExpression: CustomStringConvertible {
         let literals = box.values
 
         // Evaluation isn't thread-safe due to shared values
-        // so we use objc_sync_enter/exit to prevent re-entrancy
-        // Beware that these objc mutexes are not available on Linux
+        // so we use NSLock to prevent re-entrance
+        let lock = NSLock()
         evaluator = {
-            #if !os(Linux)
-                objc_sync_enter(box)
-            #endif
+            lock.lock()
             defer {
                 box.values = literals
-                #if !os(Linux)
-                    objc_sync_exit(box)
-                #endif
+                lock.unlock()
             }
             let value = try expression.evaluate()
             return box.load(value)
@@ -549,7 +545,7 @@ public struct AnyExpression: CustomStringConvertible {
             switch T.self {
             case _ where AnyExpression.isNil(anyValue):
                 break // Fall through
-            case is _String.Type, is String?.Type, is Substring?.Type:
+            case is _String.Type, is NSString?.Type, is String?.Type, is Substring?.Type:
                 // TODO: should we stringify any type like this?
                 return (AnyExpression.cast(AnyExpression.stringify(anyValue)) as T?)!
             case is Bool.Type, is Bool?.Type:
@@ -678,9 +674,14 @@ extension AnyExpression {
     // Convert any value to a printable string
     static func stringify(_ value: Any) -> String {
         switch value {
-        case let bool as Bool:
-            return bool ? "true" : "false"
         case let number as NSNumber:
+            // https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html
+            switch UnicodeScalar(UInt8(number.objCType.pointee)) {
+            case "c", "B":
+                return number == 0 ? "false" : "true"
+            default:
+                break
+            }
             if let int = Int64(exactly: number) {
                 return "\(int)"
             }
@@ -700,10 +701,6 @@ extension AnyExpression {
             return "...\(range.upperBound)"
         case let range as PartialRangeFrom<Int>:
             return "\(range.lowerBound)..."
-            #if !swift(>=3.4) || (swift(>=4) && !swift(>=4.1.5))
-                case let range as CountablePartialRangeFrom<Int>:
-                    return "\(range.lowerBound)..."
-            #endif
         case is Any.Type:
             return "\(value)"
         case let value:
@@ -925,20 +922,6 @@ extension ClosedRange: _Range {
     }
 }
 
-#if !swift(>=3.4) || (swift(>=4) && !swift(>=4.1.5))
-
-    extension CountableClosedRange: _Range {
-        fileprivate func slice(of array: _Array, for symbol: Expression.Symbol) throws -> ArraySlice<Any> {
-            return try ClosedRange(self).slice(of: array, for: symbol)
-        }
-
-        fileprivate func slice(of string: _String, for symbol: Expression.Symbol) throws -> Substring {
-            return try ClosedRange(self).slice(of: string, for: symbol)
-        }
-    }
-
-#endif
-
 extension Range: _Range {
     fileprivate func slice(of array: _Array, for symbol: Expression.Symbol) throws -> ArraySlice<Any> {
         guard let range = self as? Range<Int> else {
@@ -965,20 +948,6 @@ extension Range: _Range {
         }
     }
 }
-
-#if !swift(>=3.4) || (swift(>=4) && !swift(>=4.1.5))
-
-    extension CountableRange: _Range {
-        fileprivate func slice(of array: _Array, for symbol: Expression.Symbol) throws -> ArraySlice<Any> {
-            return try Range(self).slice(of: array, for: symbol)
-        }
-
-        fileprivate func slice(of string: _String, for symbol: Expression.Symbol) throws -> Substring {
-            return try Range(self).slice(of: string, for: symbol)
-        }
-    }
-
-#endif
 
 extension PartialRangeThrough: _Range {
     fileprivate func slice(of array: _Array, for symbol: Expression.Symbol) throws -> ArraySlice<Any> {
@@ -1072,20 +1041,6 @@ extension PartialRangeFrom: _Range {
     }
 }
 
-#if !swift(>=3.4) || (swift(>=4) && !swift(>=4.1.5))
-
-    extension CountablePartialRangeFrom: _Range {
-        fileprivate func slice(of array: _Array, for symbol: Expression.Symbol) throws -> ArraySlice<Any> {
-            return try PartialRangeFrom(lowerBound).slice(of: array, for: symbol)
-        }
-
-        fileprivate func slice(of string: _String, for symbol: Expression.Symbol) throws -> Substring {
-            return try PartialRangeFrom(lowerBound).slice(of: string, for: symbol)
-        }
-    }
-
-#endif
-
 // Used for string values
 private protocol _String {
     var substring: Substring { get }
@@ -1103,13 +1058,11 @@ extension Substring: _String {
     }
 }
 
-#if !os(Linux)
-    extension NSString: _String {
-        var substring: Substring {
-            return Substring(self as String)
-        }
+extension NSString: _String {
+    var substring: Substring {
+        return Substring("\(self)")
     }
-#endif
+}
 
 // Used for array values
 private protocol _Array {
@@ -1136,7 +1089,10 @@ extension ArraySlice: _SwiftArray {
     }
 
     static func cast(_ value: Any) -> Any? {
-        return (AnyExpression.arrayCast(value) as [Element]?).map(self.init)
+        guard let value = AnyExpression.arrayCast(value) as [Element]? else {
+            return nil
+        }
+        return ArraySlice(value)
     }
 }
 
@@ -1176,12 +1132,3 @@ extension Optional: _Optional {
     fileprivate var value: Any? { return self }
     fileprivate static var wrappedType: Any.Type { return Wrapped.self }
 }
-
-#if !swift(>=3.4) || (swift(>=4) && !swift(>=4.1.5))
-
-    extension ImplicitlyUnwrappedOptional: _Optional {
-        fileprivate var value: Any? { return self }
-        fileprivate static var wrappedType: Any.Type { return Wrapped.self }
-    }
-
-#endif

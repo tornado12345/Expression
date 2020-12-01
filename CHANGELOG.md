@@ -1,5 +1,25 @@
 # Change Log
 
+## [0.13.2](https://github.com/nicklockwood/Expression/releases/tag/0.13.2) (2019-06-30)
+
+- AnyExpression now supports concurrent evaluation on Linux
+- Fixed NSString bug on Linux
+
+## [0.13.1](https://github.com/nicklockwood/Expression/releases/tag/0.13.1) (2019-06-05)
+
+- Fixed error in Swift 5.1 beta
+
+## [0.13.0](https://github.com/nicklockwood/Expression/releases/tag/0.13.0) (2019-05-10)
+
+- Fixed Xcode 10.2 warnings
+- Expression now requires a minimum Swift version of 4.2
+
+## [0.12.12](https://github.com/nicklockwood/Expression/releases/tag/0.12.12) (2019-03-26)
+
+- Expression now builds correctly on Linux, including the test suite
+- Fixed bug where whitespace around operators could affect the precedence
+- Fixed a bug where numeric values could incorrectly be printed as a boolean
+
 ## [0.12.11](https://github.com/nicklockwood/Expression/releases/tag/0.12.11) (2018-06-15)
 
 - Fixed all warnings in Xcode 10 beta
